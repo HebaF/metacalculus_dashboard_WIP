@@ -9,7 +9,7 @@ import os
 # Get the directory of the current script
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Construct path to CSV file
-csv_path = os.path.join(current_dir, 'forecast_data.csv')  # Updated filename
+csv_path = os.path.join(current_dir, 'forecast_data.csv')
 
 # Read the CSV data from file
 df = pd.read_csv(csv_path)
@@ -31,7 +31,7 @@ def create_main_figure():
         fig.add_trace(go.Indicator(
             mode = "gauge+number",
             value = current_probability,
-            title = {'text': "Probability"},
+            title = {'text': "Current Probability"},
             gauge = {
                 'axis': {'range': [0, 100], 'ticksuffix': "%"},
                 'bar': {'color': "#4ade80"},
@@ -51,6 +51,75 @@ def create_main_figure():
         margin=dict(t=60, b=40),
         height=300
     )
+    return fig
+
+def create_timeline_figure():
+    # Convert 'End Time' to datetime
+    df['End Time'] = pd.to_datetime(df['End Time'])
+    
+    # Create figure with secondary y-axis
+    fig = go.Figure()
+
+    # Add probability line
+    fig.add_trace(
+        go.Scatter(
+            x=df['End Time'],
+            y=df['Probability Yes'].mul(100),
+            name='Probability',
+            line=dict(color='#4ade80', width=2),
+            hovertemplate='%{x}<br>Probability: %{y:.1f}%<extra></extra>'
+        )
+    )
+
+    # Add forecaster count line
+    fig.add_trace(
+        go.Scatter(
+            x=df['End Time'],
+            y=df['Forecaster Count'],
+            name='Forecaster Count',
+            line=dict(color='#94a3b8', width=2, dash='dot'),
+            yaxis='y2',
+            hovertemplate='%{x}<br>Forecasters: %{y}<extra></extra>'
+        )
+    )
+
+    # Update layout
+    fig.update_layout(
+        title='Prediction History',
+        plot_bgcolor='#1f2937',
+        paper_bgcolor='#1f2937',
+        font=dict(color='white'),
+        xaxis=dict(
+            title='Date',
+            showgrid=True,
+            gridcolor='#374151',
+            tickformat='%Y-%m-%d'
+        ),
+        yaxis=dict(
+            title='Probability (%)',
+            showgrid=True,
+            gridcolor='#374151',
+            range=[0, 100]
+        ),
+        yaxis2=dict(
+            title='Number of Forecasters',
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            range=[0, df['Forecaster Count'].max() * 1.1]
+        ),
+        hovermode='x unified',
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor='rgba(0,0,0,0.5)'
+        ),
+        margin=dict(t=60, b=40),
+        height=400
+    )
+    
     return fig
 
 app.layout = html.Div([
@@ -83,6 +152,15 @@ app.layout = html.Div([
         figure=create_main_figure(),
         style={'backgroundColor': '#1f2937'}
     ),
+    
+    # Timeline plot
+    html.Div([
+        html.H3("Prediction Timeline", style={'color': 'white', 'marginTop': '20px'}),
+        dcc.Graph(
+            figure=create_timeline_figure(),
+            style={'backgroundColor': '#1f2937'}
+        ),
+    ]),
     
     # Question Details
     html.Div([
