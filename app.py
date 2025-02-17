@@ -4,60 +4,33 @@ import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime
-import requests
+import os
+
+# Get the directory of the current script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Construct path to CSV file
+csv_path = os.path.join(current_dir, 'forecast_data.csv')  # Updated filename
+
+# Read the CSV data from file
+df = pd.read_csv(csv_path)
+
+# Convert probability to percentage and get the most recent prediction
+latest_prediction = df.iloc[-1]  # Get the last row
+current_probability = float(latest_prediction['Probability Yes']) * 100
+current_forecaster_count = latest_prediction['Forecaster Count']
 
 # Initialize the app with a dark theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 server = app.server
 
-class MetaculusPredictor:
-    def __init__(self):
-        self.question_id = "23387"  # Avian flu PHEIC question ID
-        
-    def get_prediction_data(self):
-        """Get prediction data from Metaculus API"""
-        try:
-            url = f"https://www.metaculus.com/api2/questions/{self.question_id}/"
-            print(f"Attempting to fetch data from: {url}")  # Debug line
-            
-            headers = {
-                'User-Agent': 'Metaculus Dashboard (Python/Dash)',
-                'Accept': 'application/json'
-            }
-            
-            response = requests.get(url, headers=headers)
-            print(f"Response status code: {response.status_code}")  # Debug line
-            
-            if response.status_code == 200:
-                data = response.json()
-                print(f"Raw prediction data: {data.get('community_prediction')}")  # Debug line
-                
-                return {
-                    'community_prediction': round(data.get('community_prediction', {}).get('q2', 0) * 100, 1),
-                    'prediction_count': data.get('prediction_count'),
-                    'created_time': data.get('created_time'),
-                    'resolution_criteria': data.get('resolution_criteria'),
-                    'description': data.get('description'),
-                    'close_time': data.get('close_time')
-                }
-            print(f"Error: API returned status code {response.status_code}")
-            return None
-        except Exception as e:
-            print(f"Error fetching Metaculus data: {e}")
-            return None
-
-predictor = MetaculusPredictor()
-prediction_data = predictor.get_prediction_data()
-print("Prediction data:", prediction_data)  # Debug line
-
 def create_main_figure():
     fig = go.Figure()
     
     # Add a gauge chart for the probability
-    if prediction_data and prediction_data.get('community_prediction'):
+    if current_probability is not None:
         fig.add_trace(go.Indicator(
             mode = "gauge+number",
-            value = prediction_data['community_prediction'],
+            value = current_probability,
             title = {'text': "Probability"},
             gauge = {
                 'axis': {'range': [0, 100], 'ticksuffix': "%"},
@@ -92,14 +65,14 @@ app.layout = html.Div([
                 [
                     "Community Prediction: ",
                     html.Span(
-                        f"{prediction_data['community_prediction']}% probability" if prediction_data and prediction_data.get('community_prediction') is not None else 'No data available (API Error)',
-                        style={'color': '#4ade80' if prediction_data and prediction_data.get('community_prediction') is not None else '#ef4444'}
+                        f"{current_probability:.1f}% probability",
+                        style={'color': '#4ade80'}
                     )
                 ], 
                 style={'color': 'white', 'textAlign': 'center'}
             ),
             html.P(
-                f"Based on {prediction_data['prediction_count'] if prediction_data and prediction_data.get('prediction_count') else 'N/A'} predictions from Metaculus community",
+                f"Based on {current_forecaster_count} predictions from Metaculus community",
                 style={'color': 'gray', 'textAlign': 'center'}
             ),
         ]),
@@ -120,12 +93,14 @@ app.layout = html.Div([
                 html.Div([
                     html.H4("Resolution Criteria", style={'color': 'white'}),
                     html.P(
-                        prediction_data['resolution_criteria'] if prediction_data and prediction_data.get('resolution_criteria') else "No data available",
-                        style={'color': 'gray'}
+                        """This question will resolve as YES if the World Health Organization (WHO) declares a Public Health Emergency of International Concern (PHEIC) for any avian influenza virus strain in humans at any point before 2030.
+
+The declaration must specifically cite an avian influenza virus (e.g. H5N1, H7N9) as the cause.""",
+                        style={'color': 'gray', 'whiteSpace': 'pre-wrap'}
                     ),
                     html.A(
                         "View on Metaculus →", 
-                        href=f"https://www.metaculus.com/questions/{predictor.question_id}/",
+                        href="https://www.metaculus.com/questions/23387/",
                         style={'color': '#4ade80'},
                         target="_blank"
                     ),
