@@ -18,17 +18,29 @@ class MetaculusPredictor:
         """Get prediction data from Metaculus API"""
         try:
             url = f"https://www.metaculus.com/api2/questions/{self.question_id}/"
-            response = requests.get(url)
+            print(f"Attempting to fetch data from: {url}")  # Debug line
+            
+            headers = {
+                'User-Agent': 'Metaculus Dashboard (Python/Dash)',
+                'Accept': 'application/json'
+            }
+            
+            response = requests.get(url, headers=headers)
+            print(f"Response status code: {response.status_code}")  # Debug line
+            
             if response.status_code == 200:
                 data = response.json()
+                print(f"Raw prediction data: {data.get('community_prediction')}")  # Debug line
+                
                 return {
-                    'community_prediction': round(data.get('community_prediction', {}).get('q2') * 100, 1),  # Convert to percentage
+                    'community_prediction': round(data.get('community_prediction', {}).get('q2', 0) * 100, 1),
                     'prediction_count': data.get('prediction_count'),
                     'created_time': data.get('created_time'),
                     'resolution_criteria': data.get('resolution_criteria'),
                     'description': data.get('description'),
                     'close_time': data.get('close_time')
                 }
+            print(f"Error: API returned status code {response.status_code}")
             return None
         except Exception as e:
             print(f"Error fetching Metaculus data: {e}")
@@ -36,12 +48,13 @@ class MetaculusPredictor:
 
 predictor = MetaculusPredictor()
 prediction_data = predictor.get_prediction_data()
+print("Prediction data:", prediction_data)  # Debug line
 
 def create_main_figure():
     fig = go.Figure()
     
     # Add a gauge chart for the probability
-    if prediction_data and prediction_data['community_prediction']:
+    if prediction_data and prediction_data.get('community_prediction'):
         fig.add_trace(go.Indicator(
             mode = "gauge+number",
             value = prediction_data['community_prediction'],
@@ -70,23 +83,23 @@ def create_main_figure():
 app.layout = html.Div([
     # Main title and current prediction
     html.Div([
-        html.H1("Will an avian influenza virus in humans be declared a "Public Health Emergency of International Concern" by the WHO before 2030?", 
+        html.H1('Will an avian influenza virus in humans be declared a "Public Health Emergency of International Concern" by the WHO before 2030?', 
                 style={'color': 'white', 'textAlign': 'center', 'padding': '20px'}),
         
         # Current prediction display
         html.Div([
             html.H2(
                 [
-                    f"Community Prediction: ",
+                    "Community Prediction: ",
                     html.Span(
-                        f"{prediction_data['community_prediction']}% probability" if prediction_data else 'No data available',
-                        style={'color': '#4ade80'}
+                        f"{prediction_data['community_prediction']}% probability" if prediction_data and prediction_data.get('community_prediction') is not None else 'No data available (API Error)',
+                        style={'color': '#4ade80' if prediction_data and prediction_data.get('community_prediction') is not None else '#ef4444'}
                     )
                 ], 
                 style={'color': 'white', 'textAlign': 'center'}
             ),
             html.P(
-                f"Based on {prediction_data['prediction_count'] if prediction_data else 'N/A'} predictions from Metaculus community",
+                f"Based on {prediction_data['prediction_count'] if prediction_data and prediction_data.get('prediction_count') else 'N/A'} predictions from Metaculus community",
                 style={'color': 'gray', 'textAlign': 'center'}
             ),
         ]),
@@ -107,7 +120,7 @@ app.layout = html.Div([
                 html.Div([
                     html.H4("Resolution Criteria", style={'color': 'white'}),
                     html.P(
-                        prediction_data['resolution_criteria'] if prediction_data else "No data available",
+                        prediction_data['resolution_criteria'] if prediction_data and prediction_data.get('resolution_criteria') else "No data available",
                         style={'color': 'gray'}
                     ),
                     html.A(
