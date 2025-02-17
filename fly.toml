@@ -1,4 +1,4 @@
-app = "Likelihood of H5N1 WHO Public Health Emergency by 2030"
+app = "h5n1-emergency-2030"
 
 kill_signal = "SIGINT" # Signal used to gracefully stop the app
 kill_timeout = 5 # Time in seconds to give app after a kill signal
